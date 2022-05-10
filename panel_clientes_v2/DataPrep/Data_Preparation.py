@@ -43,8 +43,20 @@ class Data_Prep:
                 {'monto_total': 'sum', 'orden': 'nunique', 'unidades': 'sum'}).reset_index().rename(
                 columns={'monto_total': 'monto_total_dia', 'orden': 'cantidad_boleta', 'unidades': 'unidades_dia'})
 
+        elif self.canal == 'ALL':
+            df_clean = ft.data_prep_all(self.data, 'email', 'venta_neta', 'rut', 'boleta', 'tienda')
+            df_clean['tienda'] = df_clean.apply(lambda row: dict_marcas_sitios.dict_marcas_sitios[row['tienda']], axis=1)
+            df_email_clean = ft.emaiL_classification(df_clean, 'email', dict_marcas_sitios.dict_correos['list_email'],
+                                                     dict_marcas_sitios.dict_correos['forus_email'],
+                                                     dict_marcas_sitios.dict_correos['trash_email'],
+                                                     dict_marcas_sitios.dict_correos['trash_mailpag'])
 
-        return df_day
+            agg_columns = ['tienda', 'email', 'tipo_correo','rut', 'fecha']
+            df_day = df_email_clean.groupby(agg_columns).agg({'boleta':'nunique', 'cod_prod':'count', 'venta_neta':'sum'}).reset_index().rename(
+                columns={'boleta':'cantidad_boleta', 'cod_prod':'unidades_dia', 'venta_neta':'monto_total_dia'}
+            )
+
+            return df_day
 
     def cliente_activo_perdido(self, df, dias_usar):
 
@@ -73,6 +85,19 @@ class Data_Prep:
             df_agg_fecha_ult['activo_perdido'] = df_agg_fecha_ult.apply(lambda row: 'perdido' if row['diff_now'] > dias
                                                                                 else 'activo', axis=1)
 
+        elif self.canal == 'ALL':
+            now = pd.to_datetime(date.today())
+            dias = dias_usar
+            df_day_filtro_correo = df[df.email != 'sin_informacion']
+
+            df_agg_fecha_ult = df_day_filtro_correo.groupby(['tienda', 'email', 'rut']).agg(
+                {'monto_total_dia': 'sum', 'cantidad_boleta': 'sum', 'unidades_dia': 'sum',
+                 'fecha': 'max'}).reset_index()
+
+            df_agg_fecha_ult['diff_now'] = (now - pd.to_datetime(df_agg_fecha_ult['fecha'])).dt.days
+            df_agg_fecha_ult['activo_perdido'] = df_agg_fecha_ult.apply(lambda row: 'perdido' if row['diff_now'] > dias
+                                                                                else 'activo', axis=1)
+
 
         return df_agg_fecha_ult
 
@@ -83,7 +108,8 @@ class Data_Prep:
             df_purchase = ft.previous_purchase(df, 'cadena', 'email', 'fecha','monto_total_dia', 'unidades_dia', 'cantidad_boleta', 'tipo_correo')
 
             df_purchase['tipo_cliente'] = df_purchase.apply(lambda row: ft.tipo_cliente(row['fecha'], row['fecha_compra_anterior'],
-                                                                    row['mes_actual'], row['mes_compra_anterior'], row['anio_actual'], row['anio_compra_anterior'], meses), axis=1)
+                                                                   row['mes_actual'], row['mes_compra_anterior'] ,row['anio_actual'],
+                                                                   row['anio_compra_anterior'], meses, row['fecha_compra_pre_anterior']), axis=1)
 
 
             var_output_bm = ['cadena', 'email', 'tipo_cliente', 'tipo_correo', 'fecha', 'monto_total_dia','unidades_dia','cantidad_boleta']
@@ -98,7 +124,8 @@ class Data_Prep:
             df_purchase = ft.previous_purchase(df, 'sitio', 'email', 'fecha','monto_total_dia', 'unidades_dia', 'cantidad_boleta', 'tipo_correo')
 
             df_purchase['tipo_cliente'] = df_purchase.apply(lambda row: ft.tipo_cliente(row['fecha'], row['fecha_compra_anterior'],
-                                                                    row['mes_actual'], row['mes_compra_anterior'], row['anio_actual'], row['anio_compra_anterior'], meses), axis=1)
+                                                                   row['mes_actual'], row['mes_compra_anterior'],
+                                                                   row['anio_actual'], row['anio_compra_anterior'], meses, row['fecha_compra_pre_anterior']), axis=1)
 
 
             var_output_bm = ['sitio', 'email', 'tipo_cliente', 'tipo_correo', 'fecha', 'monto_total_dia','unidades_dia','cantidad_boleta']
@@ -108,4 +135,21 @@ class Data_Prep:
             df_output['month'] = df_output['fecha'].dt.month
             df_output['meses_tipo_cliente'] = meses
 
+        elif self.canal == 'ALL':
+
+            df_purchase = ft.previous_purchase(df, 'tienda', 'email', 'fecha', 'monto_total_dia', 'unidades_dia', 'cantidad_boleta', 'tipo_correo')
+
+            df_purchase['tipo_cliente'] = df_purchase.apply(lambda row: ft.tipo_cliente(row['fecha'], row['fecha_compra_anterior'],
+                                                                   row['mes_actual'], row['mes_compra_anterior'], row['anio_actual'],
+                                                                   row['anio_compra_anterior'], meses, row['fecha_compra_pre_anterior']), axis=1)
+
+
+            var_output_all = ['tienda', 'email', 'tipo_cliente', 'tipo_correo', 'fecha', 'monto_total_dia','unidades_dia','cantidad_boleta']
+
+            df_output = df_purchase[var_output_all]
+            df_output['year'] = df_output['fecha'].dt.year
+            df_output['month'] = df_output['fecha'].dt.month
+            df_output['meses_tipo_cliente'] = meses
+
         return df_output
+

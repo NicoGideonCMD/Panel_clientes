@@ -21,14 +21,19 @@ def rename_columns(df, dict):
 def previous_purchase(df, col1, col2, col3, col4, col5, col6, col0):
     df_sort = df.sort_values(by=[col2, col3])
     df_sort['fecha_compra_anterior_1'] = df_sort.groupby([col1, col2, col0])[col3].shift(periods=1)
+    df_sort['fecha_compra_anterior_2'] = df_sort.groupby([col1, col2, col0])[col3].shift(periods=2)
     df_sort['fecha_compra_anterior'] = df_sort.apply(
         lambda row: row[col3] if pd.isna(row['fecha_compra_anterior_1']) == True
         else row['fecha_compra_anterior_1'], axis=1)
+    df_sort['fecha_compra_pre_anterior'] = df_sort.apply(
+        lambda row: row[col3] if pd.isna(row['fecha_compra_anterior_2']) == True
+        else row['fecha_compra_anterior_2'], axis=1)
 
     df_sort['monto_compra_anterior'] = df_sort.groupby([col1, col2, col0])[col4].shift(periods=1).fillna(0)
     df_sort['unidades_compra_anterior'] = df_sort.groupby([col1, col2, col0])[col5].shift(periods=1).fillna(0)
 
     df_sort['fecha_compra_anterior'] = pd.to_datetime(df_sort['fecha_compra_anterior'], format='%Y-%m-%d')
+    df_sort['fecha_compra_pre_anterior'] = pd.to_datetime(df_sort['fecha_compra_pre_anterior'], format='%Y-%m-%d')
     df_sort[col3] = pd.to_datetime(df_sort[col3], format='%Y-%m-%d')
 
     df_sort['anio_actual'] = df_sort[col3].dt.year
@@ -37,19 +42,21 @@ def previous_purchase(df, col1, col2, col3, col4, col5, col6, col0):
     df_sort['mes_actual'] = df_sort[col3].dt.month
     df_sort['mes_compra_anterior'] = df_sort['fecha_compra_anterior'].dt.month
 
-    col_sorted = [col1, col2, col0, col3, 'fecha_compra_anterior', col4, 'anio_actual', 'anio_compra_anterior',
-                  'mes_actual','mes_compra_anterior', 'monto_compra_anterior', col5, 'unidades_compra_anterior', col6]
+    col_sorted = [col1, col2, col0, col3, 'fecha_compra_anterior', 'fecha_compra_pre_anterior',col4, 'anio_actual',
+                  'anio_compra_anterior', 'mes_actual','mes_compra_anterior', 'monto_compra_anterior', col5,
+                  'unidades_compra_anterior', col6]
+
     return df_sort[col_sorted].reset_index(drop=True)
 
-def tipo_cliente(col1, col2, col3, col4, col5, col6, meses):
+def tipo_cliente(col1, col2, col3, col4, col5, col6, meses, col8):
     tipo_cliente = ''
 
-    if ((col3 == col4) & (col5 == col6)):
+    if ((col3 == col4) & (col5 == col6)& (col8.month == col1.month)):
         tipo_cliente = 'cliente_nuevo'
 
-    elif ((col1 <= (col2 + pd.DateOffset(months=meses))) &
+    elif ((col8 < col1) or ((col1 <= (col2 + pd.DateOffset(months=meses))) &
           (aniomes((col2 + pd.DateOffset(months=meses)).year, (col2 + pd.DateOffset(months=meses)).month) >= aniomes(col5, col3)) &
-          (aniomes(col5, col3) > aniomes(col6, col4))):
+          (aniomes(col5, col3) > aniomes(col6, col4)))):
         tipo_cliente = 'cliente_recurrente'
 
     elif col1 > (col2 + pd.DateOffset(months=meses)):
@@ -127,52 +134,62 @@ def data_prep_ecom(df, email, monto_total, descuento_total):
     df_clean[descuento_total] = df_clean[descuento_total].fillna(0)
     return df_clean
 
-def monetary(df, col0, col1, col2):
-    # col 0 is cadena col1 is the email's column and the col2 is the amount's column
-    df_monetary = df.groupby([col0, col1]).agg({col2:'sum'}).reset_index().rename(columns={col2:'monetary'})
+def data_prep_all(df, email, venta_neta, rut, boleta, tienda):
+    df_clean = df
+    df_clean[email] = df_clean[email].fillna('sin_informacion')
+    df_clean[venta_neta] = df_clean[venta_neta].fillna(0)
+    df_clean[rut] = df_clean[rut].fillna('sin_informacion')
+    df_clean[boleta] = df_clean[boleta].fillna('sin_informacion')
+    df_clean[tienda] = df_clean[tienda].str.lower()
+    return df_clean
+
+def monetary(df, col0, col1, col2, col5):
+    # col 0 is cadena col1 is the email's column and the col2 is the amount's column col3 is rut
+    df_monetary = df.groupby([col0, col1, col5]).agg({col2:'sum'}).reset_index().rename(columns={col2:'monetary'})
     return df_monetary
 
-def recency(df, col0, col1, col2,now_date):
-    # col1 is the email's column and col2 is the date's column
-    df_max_date = df.groupby([col0, col1]).agg({col2:np.max}).reset_index()
+def recency(df, col0, col1, col2, col5, now_date):
+    # col1 is the email's column and col2 is the date's column col3 is rut
+    df_max_date = df.groupby([col0, col1, col5]).agg({col2:np.max}).reset_index()
     df_max_date['diferencia'] = now_date - pd.to_datetime(df_max_date[col2])
     df_max_date['recency'] = df_max_date['diferencia'].dt.days
-    df_recency = df_max_date[[col0, col1,'recency']]
+    df_recency = df_max_date[[col0, col1,col5,'recency']]
     return df_recency
 
-def tenure(df, col0, col1, col2,now_date):
-    # col1 is the column email's and col2 is the column's date
-    df_min_date = df.groupby([col0, col1]).agg({col2:np.min}).reset_index()
+def tenure(df, col0, col1, col2, col5, now_date):
+    # col1 is the column email's and col2 is the column's date col3 is rut
+    df_min_date = df.groupby([col0, col1, col5]).agg({col2:np.min}).reset_index()
     df_min_date['diferencia'] = now_date - pd.to_datetime(df_min_date[col2])
     df_min_date['tenure'] = df_min_date['diferencia'].dt.days
-    df_tenure = df_min_date[[col0, col1,'tenure']]
+    df_tenure = df_min_date[[col0, col1, col5, 'tenure']]
     return df_tenure
 
-def frequency(df, col0, col1, col2):
-   # col1 is the email's column and col2 is the order id's column
+def frequency(df, col0, col1, col2, col5):
+   # col1 is the email's column and col2 is the order id's column col3 is rut
     df['email2'] = df[col1]
-    df_freq = df.groupby([col0, col1])[col2].nunique().reset_index()
+    df_freq = df.groupby([col0, col1, col5])[col2].nunique().reset_index()
     df_freq = df_freq.rename(columns={col2:'frequency'})
     return df_freq
 
 
-def df_RFMT(df, col0, col1, col2, col3, col4):
+def df_RFMT(df, col0, col1, col2, col3, col4, col5):
     # col0 is cadena's columns
     # col1 is the email's columns
     # col2 is the amaount's columns
     # col3 is the date's columns
     # col4 is the order_id's columns
+    # col5 is rut
 
     today = pd.to_datetime(date.today())
 
-    df_monetary = monetary(df, col0, col1, col2)
-    df_recency = recency(df, col0, col1, col3, today)
-    df_tenure = tenure(df, col0, col1, col3, today)
-    df_frequency = frequency(df, col0, col1, col4)
+    df_monetary = monetary(df, col0, col1, col2, col5)
+    df_recency = recency(df, col0, col1, col3, col5, today)
+    df_tenure = tenure(df, col0, col1, col3, col5, today)
+    df_frequency = frequency(df, col0, col1, col4, col5)
 
-    df_rfmt1 = pd.merge(df_recency, df_frequency, how='left', on=[col0, col1])
-    df_rfmt2 = pd.merge(df_monetary, df_tenure, how='left', on=[col0, col1])
-    df_rfmt3 = pd.merge(df_rfmt1, df_rfmt2, how='left', on=[col0, col1])
+    df_rfmt1 = pd.merge(df_recency, df_frequency, how='left', on=[col0, col1, col5])
+    df_rfmt2 = pd.merge(df_monetary, df_tenure, how='left', on=[col0, col1, col5])
+    df_rfmt3 = pd.merge(df_rfmt1, df_rfmt2, how='left', on=[col0, col1, col5])
 
     return df_rfmt3
 
@@ -182,8 +199,8 @@ def rfmt(df, mode):
         columns_agg = ['cadena_lv', 'prm_email', 'prm_rut', 'agno','mes','fecha','boleta','tipo_correo']
 
         df_agg = df.groupby(columns_agg).agg({'venta_neta':'sum'}).reset_index().rename(columns={'nombre_cadena':'cadena', 'prm_email':'email', 'prm_rut':'rut', 'anyo':'anio', 'ventasiva':'monto_total_dia'})
-        df_rfmt = df_RFMT(df_agg, 'cadena_lv', 'email', 'venta_neta', 'fecha', 'boleta').sort_values(by='monetary')
-        df_rfmt_clean = df_rfmt[(df_rfmt.email != 'sin_informacion')].rename(columns={'cadena_lv':'cadena'})
+        df_rfmt = df_RFMT(df_agg, 'cadena_lv', 'email', 'venta_neta', 'fecha', 'boleta', 'rut').sort_values(by='monetary')
+        df_rfmt_clean = df_rfmt[(df_rfmt.email != 'sin_informacion')].rename(columns={'cadena_lv':'cadena', 'prm_rut':'rut-sin-dv'})
 
     elif mode == 'ECOM':
 
@@ -191,11 +208,24 @@ def rfmt(df, mode):
         df['agno'] = df['fecha'].dt.year
         df['mes'] = df['fecha'].dt.month
 
-        columns_agg = ['tienda', 'email', 'agno', 'mes', 'fecha2', 'orden', 'tipo_correo']
+        columns_agg = ['tienda', 'email','rut','agno', 'mes', 'fecha2', 'orden', 'tipo_correo']
 
         df_agg = df.groupby(columns_agg).agg({'monto_total': 'sum'}).reset_index().rename(columns={'agno': 'anio','monto_total': 'monto_total_dia', 'fecha2':'fecha', 'tienda':'sitio'})
+        df_rfmt = df_RFMT(df_agg, 'sitio', 'email', 'monto_total_dia', 'fecha', 'orden', 'rut').sort_values(by='monetary')
+        df_rfmt_clean = df_rfmt[(df_rfmt.email != 'sin_informacion')]
 
-        df_rfmt = df_RFMT(df_agg, 'sitio', 'email', 'monto_total_dia', 'fecha', 'orden').sort_values(by='monetary')
+    elif mode == 'ALL':
+
+        df['fecha2'] = pd.to_datetime(df['fecha']).dt.date
+        df['agno'] = pd.to_datetime(df['fecha']).dt.year
+        df['mes'] = pd.to_datetime(df['fecha']).dt.month
+
+        columns_agg = ['tienda', 'email', 'rut', 'agno', 'mes', 'fecha2', 'boleta', 'tipo_correo']
+
+        df_agg = df.groupby(columns_agg).agg({'venta_neta': 'sum'}).reset_index().rename(
+            columns={'agno': 'anio', 'venta_neta': 'monto_total_dia', 'fecha2': 'fecha'})
+        df_rfmt = df_RFMT(df_agg, 'tienda', 'email', 'monto_total_dia', 'fecha', 'boleta', 'rut').sort_values(
+            by='monetary')
         df_rfmt_clean = df_rfmt[(df_rfmt.email != 'sin_informacion')]
 
     return df_rfmt_clean
@@ -227,5 +257,15 @@ def class_monetary(monetary, p75, p50 ,p25, upper_whisker, lower_whisker):
     elif (monetary < lower_whisker):
         classification = 'E'
     return classification
+
+def dv(rut):
+    try:
+        len_rut = len(rut)
+        rut_sdv = rut[0:len_rut-1]
+    except:
+        rut_sdv = 0
+    return rut_sdv
+
+
 
 
