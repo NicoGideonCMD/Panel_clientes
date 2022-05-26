@@ -26,7 +26,7 @@ query_brick_mortar =  """
                             v.mes,
                             v.date_df as fecha,
                             b.prm_email,
-                            b.prm_rut,
+                            cast(upper(substring(trim(b.prm_rut) , 1, length(trim(b.prm_rut))-1 ))as int) as prm_rut,
                             b.foli_docu as boleta,
                             v.codpro_df as cod_prod,
                             sum(v.venta_neta) as venta_neta

@@ -48,6 +48,22 @@ def previous_purchase(df, col1, col2, col3, col4, col5, col6, col0):
 
     return df_sort[col_sorted].reset_index(drop=True)
 
+
+def previous_purchase_clv(df, col1, col2, col3):
+    df_sort = df.sort_values(by=[col2, col3])
+
+    df_sort['fecha_compra_anterior_1'] = df_sort.groupby([col1, col2])[col3].shift(periods=1)
+
+    df_sort['fecha_compra_anterior'] = df_sort.apply(
+        lambda row: row[col3] if pd.isna(row['fecha_compra_anterior_1']) == True
+        else row['fecha_compra_anterior_1'], axis=1)
+
+    df_sort['fecha_compra_anterior'] = pd.to_datetime(df_sort['fecha_compra_anterior'], format='%Y-%m-%d')
+    df_sort[col3] = pd.to_datetime(df_sort[col3], format='%Y-%m-%d')
+
+    return df_sort
+
+
 def tipo_cliente(col1, col2, col3, col4, col5, col6, meses, col8):
     tipo_cliente = ''
 
@@ -122,6 +138,7 @@ def emaiL_classification(df, email, list_email, forus_email, trash_mail, trash_m
 
 def data_prep_bm(df, email, rut, boleta):
     df_clean = df
+    df_clean[email] = df_clean[email].fillna(value=np.nan)
     df_clean[email] = df_clean[email].fillna('sin_informacion')
     df_clean[rut] = df_clean[rut].fillna('sin_informacion')
     df_clean[boleta] = df_clean[boleta].fillna('999-9-99999999-9999')
@@ -265,6 +282,76 @@ def dv(rut):
     except:
         rut_sdv = 0
     return rut_sdv
+
+
+def prep_clv(df_data):
+    #### df_data debe venir filtrada con la funcion de email_clasification y tipo_correo == 'correo_cliente'
+    #### Preparación DF
+    df_data['agno'] = pd.DatetimeIndex(df_data['fecha']).year
+    df_data['mes'] = pd.DatetimeIndex(df_data['fecha']).month
+    df_agg = df_data.groupby(['cadena', 'agno', 'mes', 'fecha', 'email']).agg(
+        {'monto_total': 'sum'}).reset_index()
+    df_previous_pruchase = previous_purchase_clv(df_agg, 'cadena', 'email', 'fecha')  # FUNCION DE previous_purchase
+    df_previous_pruchase_sort = df_previous_pruchase.sort_values(by=['cadena', 'email', 'fecha']).drop(
+        columns={'fecha_compra_anterior_1'})
+    df_previous_pruchase_sort['email_shift'] = df_previous_pruchase_sort.groupby('cadena')['email'].shift(periods=1)
+    df_previous_pruchase_sort['cliente_mas_1_compra'] = df_previous_pruchase_sort.apply(
+        lambda row: 1 if ((row['fecha'] != row['fecha_compra_anterior'])
+                          & (row['email'] == row['email_shift']))
+        else 0, axis=1)
+
+    df_previous_pruchase_sort['id_cliente_cadena'] = df_previous_pruchase_sort['cadena'] + df_previous_pruchase_sort[
+        'email']
+
+    unique_mail = list(
+        df_previous_pruchase_sort.id_cliente_cadena[df_previous_pruchase_sort.cliente_mas_1_compra >= 0].unique())
+
+    columns_sort = ['cadena', 'email', 'agno', 'mes', 'fecha', 'fecha_compra_anterior', 'monto_total',
+                    'id_cliente_cadena']
+    df_clientes_recompra = df_previous_pruchase_sort[
+        df_previous_pruchase_sort.id_cliente_cadena.isin(unique_mail)].drop(
+        columns={'email_shift', 'cliente_mas_1_compra'})
+    df_clientes_recompra_sort = df_clientes_recompra[columns_sort]
+
+    df_clientes_recompra_sort['dias_entre_compras'] = (
+                df_clientes_recompra_sort['fecha'] - df_clientes_recompra_sort['fecha_compra_anterior']).dt.days
+    df_clientes_recompra_sort['num_compra'] = df_clientes_recompra_sort.groupby('id_cliente_cadena')['fecha'].rank(
+        method='first')
+
+    df_clientes_clean = df_clientes_recompra_sort[(df_clientes_recompra_sort['num_compra'] <= 20)]
+    df_clientes_clean_export = df_clientes_clean.drop(columns=['id_cliente_cadena'])
+
+    df_clientes_clean_agg = df_clientes_clean_export.groupby(['cadena', 'num_compra']).agg(
+        {'email': 'count'  # solo deben entrar clientes cuyo tipo_correo sea valido
+            , 'monto_total': 'mean'
+            , 'dias_entre_compras': 'mean'})
+    return df_clientes_clean_agg
+
+
+def clv_generator(df_clientes_clean_agg, tasa):
+    df_clientes_clean_agg['pct_clientes'] = df_clientes_clean_agg['email'] / df_clientes_clean_agg.groupby(level=[0])[
+        'email'].transform('sum')
+    df_clientes_clean_agg['tasa_retencion'] = df_clientes_clean_agg['email'] / df_clientes_clean_agg.groupby(level=[0])[
+        'email'].transform('max')
+    df_clientes_clean_agg['tasa_descuento'] = tasa
+    df_clientes_clean_agg['dias_acum'] = df_clientes_clean_agg.groupby(level=[0])['dias_entre_compras'].cumsum()
+    df_clientes_clean_agg['periodo_equivalente'] = df_clientes_clean_agg['dias_acum'] / 30
+    df_clientes_clean_agg['CLV_spot'] = df_clientes_clean_agg['monto_total'] * df_clientes_clean_agg[
+        'tasa_retencion'] / ((1 + df_clientes_clean_agg['tasa_descuento']) ** df_clientes_clean_agg[
+        'periodo_equivalente'])
+
+    return df_clientes_clean_agg
+
+def get_clv(df_data, tasa=0.0064):
+    df_clientes_clean_agg = prep_clv(df_data)
+    df_clientes_clean_agg2 = clv_generator(df_clientes_clean_agg , tasa)
+    df_clientes_clv = df_clientes_clean_agg2.groupby(level=[0])[['CLV_spot']].sum()
+    return df_clientes_clv
+
+def homo_tienda(row, dict_tienda):
+    for key, value in dict_tienda.items():
+        if row in value:
+            return key
 
 
 

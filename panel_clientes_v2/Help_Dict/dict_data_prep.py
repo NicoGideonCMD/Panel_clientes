@@ -2,7 +2,7 @@ dict_rename_bm = {'cadena_lv':'cadena',
                   'tienda_lv':'tienda',
                   'prm_email':'email',
                   'prm_rut':'rut',
-                 'fecha_transaccion':'fecha'}
+                  'fecha_transaccion':'fecha'}
 
 dict_rename_ecom = {'tienda':'sitio',
                     'fecha':'fecha_hora'}

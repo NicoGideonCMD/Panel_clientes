@@ -24,11 +24,12 @@ class Data_Prep:
                                                      dict_marcas_sitios.dict_correos['trash_mailpag'])
 
             df_bm = ft.rename_columns(df_email_clean,dict_data_prep.dict_rename_bm)
-
             agg_columns = ['cadena', 'tienda', 'fecha', 'email', 'rut', 'tipo_correo']
 
-            df_day = df_bm.groupby(agg_columns).agg({'venta_neta':'sum', 'boleta':'nunique', 'cod_prod':'count'}).reset_index().rename(columns={'venta_neta':'monto_total_dia', 'boleta':'cantidad_boleta', 'cod_prod':'unidades_dia'})
+            df_day = df_bm.groupby(agg_columns).agg({'venta_neta':'sum', 'boleta':'nunique', 'cod_prod':'count'}).reset_index().rename(columns={'venta_neta':'monto_total_dia'
+                                                                                                                                              , 'boleta':'cantidad_boleta', 'cod_prod':'unidades_dia'})
 
+            return df_day
         elif self.canal == 'ECOM':
             df_clean = ft.data_prep_ecom(self.data, 'email', 'monto_total', 'descuento_total')
             df_email_clean = ft.emaiL_classification(df_clean, 'email', dict_marcas_sitios.dict_correos['list_email'], dict_marcas_sitios.dict_correos['forus_email'],
@@ -42,6 +43,7 @@ class Data_Prep:
             df_day = df_ecom.groupby(agg_columns).agg(
                 {'monto_total': 'sum', 'orden': 'nunique', 'unidades': 'sum'}).reset_index().rename(
                 columns={'monto_total': 'monto_total_dia', 'orden': 'cantidad_boleta', 'unidades': 'unidades_dia'})
+            return df_day
 
         elif self.canal == 'ALL':
             df_clean = ft.data_prep_all(self.data, 'email', 'venta_neta', 'rut', 'boleta', 'tienda')
@@ -152,4 +154,46 @@ class Data_Prep:
             df_output['meses_tipo_cliente'] = meses
 
         return df_output
+
+    def df_general_clv(self):
+
+        if self.canal == 'BM':
+            df_clean = ft.data_prep_bm(self.data, 'prm_email', 'prm_rut','boleta')
+            # renombrar columnas
+            df_clean_renamed = df_clean.rename(columns = {'prm_email':'email', 'prm_rut':'rut','cadena_lv':'tienda','boleta':'orden','venta_neta':'monto_total'})
+
+            #filtrar tipo_correo = correo_cliente
+            df_email_clean = ft.emaiL_classification(df_clean_renamed, 'email',
+                                                     dict_marcas_sitios.dict_correos['list_email'],
+                                                     dict_marcas_sitios.dict_correos['forus_email'],
+                                                     dict_marcas_sitios.dict_correos['trash_email'],
+                                                     dict_marcas_sitios.dict_correos['trash_mailpag'])
+            # homologar cadena tienda
+            df_email_clean['cadena'] = df_email_clean['tienda'].apply(lambda row: ft.homo_tienda(row, dict_marcas_sitios.dict_tienda))
+
+            return df_email_clean
+
+
+        elif self.canal == 'ECOM':
+            df_clean = ft.data_prep_ecom(self.data, 'email', 'monto_total', 'descuento_total')
+            df_email = ft.emaiL_classification(df_clean, 'email', dict_marcas_sitios.dict_correos['list_email'],
+                                                     dict_marcas_sitios.dict_correos['forus_email'],
+                                                     dict_marcas_sitios.dict_correos['trash_email'],
+                                                     dict_marcas_sitios.dict_correos['trash_mailpag'])
+            df_email_clean = df_email[df_email.tipo_correo=='correo_cliente']
+            df_email_clean['cadena'] = df_email_clean['tienda'].apply(lambda row: ft.homo_tienda(row, dict_marcas_sitios.dict_tienda))
+
+            return df_email_clean
+
+        elif self.canal == 'ALL':
+            df_clean = ft.data_prep_all(self.data, 'email', 'venta_neta', 'rut', 'boleta', 'tienda')
+            df_clean_renamed = df_clean.rename(columns={'boleta': 'orden','venta_neta': 'monto_total'})
+            df_email = ft.emaiL_classification(df_clean_renamed, 'email', dict_marcas_sitios.dict_correos['list_email'],
+                                                     dict_marcas_sitios.dict_correos['forus_email'],
+                                                     dict_marcas_sitios.dict_correos['trash_email'],
+                                                     dict_marcas_sitios.dict_correos['trash_mailpag'])
+            df_email_clean = df_email[df_email.tipo_correo=='correo_cliente']
+            df_email_clean['cadena'] = df_email_clean['tienda'].apply(lambda row: ft.homo_tienda(row, dict_marcas_sitios.dict_tienda))
+
+            return df_email_clean
 
