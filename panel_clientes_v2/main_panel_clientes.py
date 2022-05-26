@@ -81,7 +81,7 @@ elif execution_mode == 'ALL':
     df_data_ecom = df_data_ecom.rename(columns={'orden': 'boleta'})
     df_data_ecom['tienda'] = df_data_ecom.apply(lambda row: dict_marcas_sitios.dict_sitios[row['tienda']], axis=1)
     df_data = pd.concat([df_data_ecom, df_data_bm_sort])
-    print(df_data.tienda.unique())
+
     tfin_all = datetime.datetime.now() - tinicio_all
     print('query ALL se demora: {}'.format(tfin_all))
 
