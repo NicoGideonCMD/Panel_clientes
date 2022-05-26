@@ -1,6 +1,6 @@
 ### Scripts ###
 from DataLoader import loader_data
-from Help_Dict import dict_connection_aws, dict_query_ventas, dict_data_prep, dict_marcas_sitios
+from Help_Dict import dict_connection_aws, dict_query_ventas, dict_data_prep, dict_marcas_sitios, dict_clv
 from Help_Function import function
 from DataPrep import Data_Preparation
 from Querys import querys
@@ -10,12 +10,13 @@ import pandas as pd
 import datetime
 import warnings
 import argparse
+import pyarrow
 
 pd.set_option('display.max_columns',None)
 warnings.filterwarnings("ignore")
 
 ####### 1.- Extract Data to Redshift ###########
-print('Inicio de la extraccióm de data')
+print('Inicio de la extracción de data')
 aws_connection = dict_connection_aws.connection_aws
 conexion_aws = function.connection_aws(aws_connection['dbname'],
                          aws_connection['host'],
@@ -80,7 +81,7 @@ elif execution_mode == 'ALL':
     df_data_ecom = df_data_ecom.rename(columns={'orden': 'boleta'})
     df_data_ecom['tienda'] = df_data_ecom.apply(lambda row: dict_marcas_sitios.dict_sitios[row['tienda']], axis=1)
     df_data = pd.concat([df_data_ecom, df_data_bm_sort])
-
+    print(df_data.tienda.unique())
     tfin_all = datetime.datetime.now() - tinicio_all
     print('query ALL se demora: {}'.format(tfin_all))
 
@@ -94,8 +95,6 @@ tinicio_prepdatos = datetime.datetime.now()
 data_prep = Data_Preparation.Data_Prep(df_data, execution_mode)
 
 df_general = data_prep.df_general_agg()
-
-
 df_cliente_activo = data_prep.cliente_activo_perdido(df_general, 365)
 
 df_tipo_cliente_12 = data_prep.tipo_cliente(df_general, dict_data_prep.dict_function_tipo_cliente[1])
@@ -106,6 +105,7 @@ df_tipo_cliente = pd.concat([df_tipo_cliente_12, df_tipo_cliente_18, df_tipo_cli
 
 tfin_prepdatos = datetime.datetime.now() - tinicio_prepdatos
 print('la preparacion de datos se demoro {}'.format(tfin_prepdatos))
+
 
 ####### 3.- Apply RFMT Model ###########
 print('Inicio de la agrupación RFMT')
@@ -179,8 +179,35 @@ df_tipo_cliente_vf = df_tipo_cliente_percentile_vf.drop(columns={'p75_monetary',
 tfin_class = datetime.datetime.now() - tinicio_class
 print('el proceso del Classification Model finalizo a las {}'.format(tfin_class))
 
+
+####### 5.- Cálculo CLV ###########
+print('Inicio del cálculo de CLV')
+tinicio_clv = datetime.datetime.now()
+
+if execution_mode == 'BM':
+    df_general_clv = data_prep.df_general_clv()
+    clv = function.get_clv(df_general_clv, dict_clv.dict_tasa_clv['tasa'])
+
+
+elif execution_mode == 'ECOM':
+    df_general_clv = data_prep.df_general_clv()
+    clv = function.get_clv(df_general_clv, dict_clv.dict_tasa_clv['tasa'])
+
+
+
+elif execution_mode == 'ALL':
+    df_general_clv = data_prep.df_general_clv()
+    clv = function.get_clv(df_general_clv, dict_clv.dict_tasa_clv['tasa'])
+
+
+
+
+
+tfin_clv = datetime.datetime.now() - tinicio_clv
+print('el proceso del cálculo del CLV finalizo a las {}'.format(tfin_clv))
+
 #### Salidas deseadas ####
 df_tipo_cliente_vf['rut'] = df_tipo_cliente_vf['rut'].astype('int')
-df_tipo_cliente_vf.to_parquet(r'C:\Users\ngaete\Documents\Panel_clientes\20220510_data_tipo_cliente_all.gzip')
-
+df_tipo_cliente_vf.to_parquet(r'C:\Users\dponce\Documents\Trabajo\Panel de clientes\20220510_data_tipo_cliente_all.gzip', engine='pyarrow')
+clv.to_excel(r'C:\Users\dponce\Documents\Trabajo\Panel de clientes\20220510_data_clv_cadena.xlsx')
 
