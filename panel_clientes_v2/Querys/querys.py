@@ -75,3 +75,14 @@ query_bm_all = """
                      where v.date_df between '{}' and '{}'
                        and v.cadena_lv not in ('ECOMMERCE', 'CD ECOMMERCE')
                        and v.venta_neta > 0"""
+
+query_segmentos = """           
+                     select
+                         lista_suscripcion,
+                         email_cliente,
+                         fecha_primera_compra,
+                         fecha_ultima_compra,
+                         nombre_cluster_marca
+                     from middleware.segmentaciones_hubspot
+                     where fecha_primera_compra >= '{}'
+                     and fecha_ultima_compra < '{}'"""
