@@ -35,8 +35,14 @@ query_brick_mortar =  """
                         on v.nlocal_df = b.hed_local
                             and v.numfac_df = b.foli_docu
                         where v.date_df between '{}' and '{}'
-                            and v.cadena_lv not in  ('ECOMMERCE', 'CD ECOMMERCE')
                             and v.venta_neta > 0
+                            and v.canped_df>0
+                            and v.prefin_df>100
+                            and v.agno>=2015
+                            and v.marketplace='NO'
+                            and v.ecommerce='NO'
+                            and v.cadena_lv not in ('CD ECOMMERCE','ECOMMERCE')
+                            and v.clase <> 'DESPACHOS'
                         group by 1,2,3,4,5,6,7,8,9,10 """
 
 query_ecom_all = """ 
@@ -73,5 +79,28 @@ query_bm_all = """
                                         on v.nlocal_df = b.hed_local
                                             and v.numfac_df = b.foli_docu
                      where v.date_df between '{}' and '{}'
+<<<<<<< Updated upstream
                        and v.cadena_lv not in ('ECOMMERCE', 'CD ECOMMERCE')
                        and v.venta_neta > 0"""
+=======
+                            and v.venta_neta > 0
+                            and v.canped_df>0
+                            and v.prefin_df>100
+                            and v.agno>=2015
+                            and v.marketplace='NO'
+                            and v.ecommerce='NO'
+                            and v.cadena_lv not in ('CD ECOMMERCE','ECOMMERCE')
+                            and v.clase <> 'DESPACHOS' 
+                            """
+
+query_segmentos = """           
+                     select
+                         lista_suscripcion,
+                         email_cliente,
+                         fecha_primera_compra,
+                         fecha_ultima_compra,
+                         nombre_cluster_marca
+                     from middleware.segmentaciones_hubspot
+                     where fecha_primera_compra >= '{}'
+                     and fecha_ultima_compra < '{}'"""
+>>>>>>> Stashed changes
