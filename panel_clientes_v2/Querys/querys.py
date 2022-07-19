@@ -93,3 +93,4 @@ query_segmentos = """
                      from middleware.segmentaciones_hubspot
                      where fecha_primera_compra >= '{}'
                      and fecha_ultima_compra < '{}'"""
+

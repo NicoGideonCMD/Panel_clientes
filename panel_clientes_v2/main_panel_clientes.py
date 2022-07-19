@@ -185,31 +185,28 @@ print('el proceso del Classification Model finalizo a las {}'.format(tfin_class)
 print('Inicio del cálculo de CLV')
 tinicio_clv = datetime.datetime.now()
 
-if execution_mode == 'BM':
-    df_general_clv = data_prep.df_general_clv()
-    clv = function.get_clv(df_general_clv, dict_clv.dict_tasa_clv['tasa'])
+data_prep_clv = Data_Preparation.Data_Prep(df_data, execution_mode)
 
+if execution_mode == 'BM':
+    df_general_clv = data_prep_clv.df_general_clv()
+    clv = function.get_clv(df_general_clv, dict_clv.dict_tasa_clv['tasa'])
 
 elif execution_mode == 'ECOM':
-    df_general_clv = data_prep.df_general_clv()
+    df_general_clv = data_prep_clv.df_general_clv()
     clv = function.get_clv(df_general_clv, dict_clv.dict_tasa_clv['tasa'])
-
-
 
 elif execution_mode == 'ALL':
-    df_general_clv = data_prep.df_general_clv()
+    df_general_clv = data_prep_clv.df_general_clv()
     clv = function.get_clv(df_general_clv, dict_clv.dict_tasa_clv['tasa'])
-
-
-
-
 
 tfin_clv = datetime.datetime.now() - tinicio_clv
 print('el proceso del cálculo del CLV finalizo a las {}'.format(tfin_clv))
 
 #### Salidas deseadas ####
+
 hoy = date.today()
 df_tipo_cliente_vf['rut'] = df_tipo_cliente_vf['rut'].astype('int')
 df_tipo_cliente_vf.to_parquet(r'C:\Users\dponce\Documents\Trabajo\Panel de clientes\data_tipo_cliente_'+execution_mode+'_'+str(hoy)+'.gzip', engine='pyarrow')
 clv.to_excel(r'C:\Users\dponce\Documents\Trabajo\Panel de clientes\data_clv_cadena'+str(hoy)+'.xlsx')
+
 

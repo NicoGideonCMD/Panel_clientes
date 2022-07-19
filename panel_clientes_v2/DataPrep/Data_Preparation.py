@@ -155,6 +155,14 @@ class Data_Prep:
 
         return df_output
 
+    def expand_date(self):
+        df = self.data
+        df['fecha'] = df.apply(lambda row: pd.date_range(row['fecha_primera_compra'], row['fecha_ultima_compra']), axis=1)
+        df_explode = df.explode('fecha')
+        df_explode = df_explode.drop(columns=['fecha_primera_compra', 'fecha_ultima_compra'])
+
+        return df_explode
+
     def df_general_clv(self):
 
         if self.canal == 'BM':
