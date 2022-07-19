@@ -18,32 +18,29 @@ query_ecommerce = """ select
                     group by 1,2,3,4,5"""
 
 query_brick_mortar =  """
-                        select
-                            v.cadena_lv,
-                            v.tienda_lv,
-                            v.nlocal_df,
-                            v.agno,
-                            v.mes,
-                            v.date_df as fecha,
-                            b.prm_email,
-                            cast(upper(substring(trim(b.prm_rut) , 1, length(trim(b.prm_rut))-1 ))as int) as prm_rut,
-                            b.foli_docu as boleta,
-                            v.codpro_df as cod_prod,
-                            sum(v.venta_neta) as venta_neta
-                        from analitica.seleccion_ventas_oficiales as v
-                        left join log_cliente_boleta as b
-                        on v.nlocal_df = b.hed_local
-                            and v.numfac_df = b.foli_docu
-                        where v.date_df between '{}' and '{}'
-                            and v.venta_neta > 0
-                            and v.canped_df>0
-                            and v.prefin_df>100
-                            and v.agno>=2015
-                            and v.marketplace='NO'
-                            and v.ecommerce='NO'
-                            and v.cadena_lv not in ('CD ECOMMERCE','ECOMMERCE')
-                            and v.clase <> 'DESPACHOS'
-                        group by 1,2,3,4,5,6,7,8,9,10 """
+select  t.nombre_cadena as cadena_lv,
+        t.nombre_tienda as tienda_lv,
+        v.cod_tienda as nlocal_df,
+        v.anyo as agno,
+        v.mes::VARCHAR as mes,
+        to_char(v.fecha_transaccion,'YYYY-MM-DD') as fecha,
+        b.prm_email,
+        cast(upper(substring(trim(b.prm_rut) , 1, length(trim(b.prm_rut))-1 ))as int) as prm_rut,        
+        v.numero_impreso as boleta,        
+        v.id_producto as cod_prod,
+        sum(v.ventasiva) as venta_neta        
+from public.ventas_bi v
+left join public.log_cliente_boleta b on v.cod_tienda = b.hed_local and v.numero_impreso = b.foli_docu
+left join analitica.maestro_tiendas t on v.cod_tienda = t.codigo_tienda
+where v.fecha_transaccion between  '{}' and '{}'
+      and v.ventasiva>100
+      and v.cantidad>0      
+      and v.anyo>=2015
+      and v.forma_pago_ec='N'
+      and t.nombre_cadena not in ('CD ECOMMERCE','ECOMMERCE')
+      and v.clase <> 'DESPACHOS'
+group by 1,2,3,4,5,6,7,8,9,10
+ """
 
 query_ecom_all = """ 
                     select
@@ -66,32 +63,25 @@ query_ecom_all = """
         group by 1,2,3,4,5,6,8 """
 
 query_bm_all = """ 
-                     select v.cadena_lv,
-                            b.prm_email,
-                            b.prm_rut,
-                            b.foli_docu  as boleta,
-                            v.date_df    as fecha,
-                            v.codpro_df  as cod_prod,
-                            v.venta_neta as venta_neta,
-                            'B&M'        as canal
-                     from analitica.seleccion_ventas_oficiales as v
-                              left join log_cliente_boleta as b
-                                        on v.nlocal_df = b.hed_local
-                                            and v.numfac_df = b.foli_docu
-                     where v.date_df between '{}' and '{}'
-<<<<<<< Updated upstream
-                       and v.cadena_lv not in ('ECOMMERCE', 'CD ECOMMERCE')
-                       and v.venta_neta > 0"""
-=======
-                            and v.venta_neta > 0
-                            and v.canped_df>0
-                            and v.prefin_df>100
-                            and v.agno>=2015
-                            and v.marketplace='NO'
-                            and v.ecommerce='NO'
-                            and v.cadena_lv not in ('CD ECOMMERCE','ECOMMERCE')
-                            and v.clase <> 'DESPACHOS' 
-                            """
+select  t.nombre_cadena as cadena_lv,
+        b.prm_email,
+        b.prm_rut,
+        v.numero_impreso as boleta,
+        to_char(v.fecha_transaccion,'YYYY-MM-DD') as fecha,
+        v.id_producto as cod_prod,
+        v.ventasiva as venta_neta,
+        'B&M' as canal
+from public.ventas_bi v
+left join public.log_cliente_boleta b on v.cod_tienda = b.hed_local and v.numero_impreso = b.foli_docu
+left join analitica.maestro_tiendas t on v.cod_tienda = t.codigo_tienda
+where v.fecha_transaccion between '{}' and '{}'
+      and v.ventasiva>100
+      and v.cantidad>0      
+      and v.anyo>=2015
+      and v.forma_pago_ec='N'
+      and t.nombre_cadena not in ('CD ECOMMERCE','ECOMMERCE')
+      and v.clase <> 'DESPACHOS'
+                     """
 
 query_segmentos = """           
                      select
@@ -103,4 +93,3 @@ query_segmentos = """
                      from middleware.segmentaciones_hubspot
                      where fecha_primera_compra >= '{}'
                      and fecha_ultima_compra < '{}'"""
->>>>>>> Stashed changes
