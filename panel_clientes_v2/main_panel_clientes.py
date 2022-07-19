@@ -8,6 +8,7 @@ from Querys import querys
 ### Libs ###
 import pandas as pd
 import datetime
+from datetime import date
 import warnings
 import argparse
 import pyarrow
@@ -202,8 +203,10 @@ tfin_clv = datetime.datetime.now() - tinicio_clv
 print('el proceso del cálculo del CLV finalizo a las {}'.format(tfin_clv))
 
 #### Salidas deseadas ####
-#df_tipo_cliente_vf['rut'] = df_tipo_cliente_vf['rut'].astype('int')
-#df_tipo_cliente_vf.to_parquet(r'C:\Users\ngaete\Documents\Panel_clientes\20220613_data_tipo_cliente_all.gzip', engine='pyarrow')
-#clv.to_excel(r'C:\Users\ngaete\Documents\Panel_clientes\20220613_data_clv_cadena.xlsx')
+
+hoy = date.today()
+df_tipo_cliente_vf['rut'] = df_tipo_cliente_vf['rut'].astype('int')
+df_tipo_cliente_vf.to_parquet(r'C:\Users\dponce\Documents\Trabajo\Panel de clientes\data_tipo_cliente_'+execution_mode+'_'+str(hoy)+'.gzip', engine='pyarrow')
+clv.to_excel(r'C:\Users\dponce\Documents\Trabajo\Panel de clientes\data_clv_cadena'+str(hoy)+'.xlsx')
 
 
