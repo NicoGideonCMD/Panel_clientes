@@ -18,33 +18,33 @@ def rename_columns(df, dict):
     return df_new
 
 
-def previous_purchase(df, col1, col2, col3, col4, col5, col6, col0):
-    df_sort = df.sort_values(by=[col2, col3])
-    df_sort['fecha_compra_anterior_1'] = df_sort.groupby([col1, col2, col0])[col3].shift(periods=1)
-    df_sort['fecha_compra_anterior_2'] = df_sort.groupby([col1, col2, col0])[col3].shift(periods=2)
+def previous_purchase(df, cadena, email, fecha, monto_total_dia, unidades_dia, cantidad_boleta, tipo_correo, min_fecha):
+    df_sort = df.sort_values(by=[cadena, fecha])
+    df_sort['fecha_compra_anterior_1'] = df_sort.groupby([cadena, email, tipo_correo,min_fecha])[fecha].shift(periods=1)
+    df_sort['fecha_compra_anterior_2'] = df_sort.groupby([cadena, email, tipo_correo,min_fecha])[fecha].shift(periods=2)
     df_sort['fecha_compra_anterior'] = df_sort.apply(
-        lambda row: row[col3] if pd.isna(row['fecha_compra_anterior_1']) == True
+        lambda row: row[fecha] if pd.isna(row['fecha_compra_anterior_1']) == True
         else row['fecha_compra_anterior_1'], axis=1)
     df_sort['fecha_compra_pre_anterior'] = df_sort.apply(
-        lambda row: row[col3] if pd.isna(row['fecha_compra_anterior_2']) == True
+        lambda row: row[fecha] if pd.isna(row['fecha_compra_anterior_2']) == True
         else row['fecha_compra_anterior_2'], axis=1)
 
-    df_sort['monto_compra_anterior'] = df_sort.groupby([col1, col2, col0])[col4].shift(periods=1).fillna(0)
-    df_sort['unidades_compra_anterior'] = df_sort.groupby([col1, col2, col0])[col5].shift(periods=1).fillna(0)
+    df_sort['monto_compra_anterior'] = df_sort.groupby([cadena, email, tipo_correo,min_fecha])[monto_total_dia].shift(periods=1).fillna(0)
+    df_sort['unidades_compra_anterior'] = df_sort.groupby([cadena, email, tipo_correo,min_fecha])[unidades_dia].shift(periods=1).fillna(0)
 
     df_sort['fecha_compra_anterior'] = pd.to_datetime(df_sort['fecha_compra_anterior'], format='%Y-%m-%d')
     df_sort['fecha_compra_pre_anterior'] = pd.to_datetime(df_sort['fecha_compra_pre_anterior'], format='%Y-%m-%d')
-    df_sort[col3] = pd.to_datetime(df_sort[col3], format='%Y-%m-%d')
+    df_sort[fecha] = pd.to_datetime(df_sort[fecha], format='%Y-%m-%d')
 
-    df_sort['anio_actual'] = df_sort[col3].dt.year
+    df_sort['anio_actual'] = df_sort[fecha].dt.year
     df_sort['anio_compra_anterior'] = df_sort['fecha_compra_anterior'].dt.year
 
-    df_sort['mes_actual'] = df_sort[col3].dt.month
+    df_sort['mes_actual'] = df_sort[fecha].dt.month
     df_sort['mes_compra_anterior'] = df_sort['fecha_compra_anterior'].dt.month
 
-    col_sorted = [col1, col2, col0, col3, 'fecha_compra_anterior', 'fecha_compra_pre_anterior',col4, 'anio_actual',
-                  'anio_compra_anterior', 'mes_actual','mes_compra_anterior', 'monto_compra_anterior', col5,
-                  'unidades_compra_anterior', col6]
+    col_sorted = [cadena, email, 'rut',tipo_correo, fecha,min_fecha ,'fecha_compra_anterior', 'fecha_compra_pre_anterior',monto_total_dia, 'anio_actual',
+                  'anio_compra_anterior', 'mes_actual','mes_compra_anterior', 'monto_compra_anterior', unidades_dia,
+                  'unidades_compra_anterior', cantidad_boleta]
 
     return df_sort[col_sorted].reset_index(drop=True)
 
@@ -64,18 +64,29 @@ def previous_purchase_clv(df, col1, col2, col3):
     return df_sort
 
 
-def tipo_cliente(col1, col2, col3, col4, col5, col6, meses, col8):
+def tipo_cliente(fecha,
+                 fecha_compra_anterior,
+                 mes_actual,
+                 mes_compra_anterior,
+                 anio_actual,
+                 anio_compra_anterior,
+                 meses,
+                 fecha_compra_pre_anterior,
+                 min_fecha):
+
     tipo_cliente = ''
 
-    if ((col3 == col4) & (col5 == col6)& (col8.month == col1.month)):
+    min_fecha_dt = pd.to_datetime(min_fecha)
+
+    if ((mes_actual == mes_compra_anterior) & (anio_actual == anio_compra_anterior)& (fecha_compra_pre_anterior.month == fecha.month) & (min_fecha_dt.month == fecha.month)):
         tipo_cliente = 'cliente_nuevo'
 
-    elif ((col8 < col1) or ((col1 <= (col2 + pd.DateOffset(months=meses))) &
-          (aniomes((col2 + pd.DateOffset(months=meses)).year, (col2 + pd.DateOffset(months=meses)).month) >= aniomes(col5, col3)) &
-          (aniomes(col5, col3) > aniomes(col6, col4)))):
+    elif ((fecha_compra_pre_anterior < fecha) or ((fecha <= (fecha_compra_anterior + pd.DateOffset(months=meses))) &
+          (aniomes((fecha_compra_anterior + pd.DateOffset(months=meses)).year, (fecha_compra_anterior + pd.DateOffset(months=meses)).month) >= aniomes(anio_actual, mes_actual)) &
+          (aniomes(anio_actual, mes_actual) > aniomes(anio_compra_anterior, mes_compra_anterior)) & (min_fecha_dt.month < fecha.month))):
         tipo_cliente = 'cliente_recurrente'
 
-    elif col1 > (col2 + pd.DateOffset(months=meses)):
+    elif fecha > (fecha_compra_anterior + pd.DateOffset(months=meses)):
         tipo_cliente = 'cliente_reactivado'
 
     else:
