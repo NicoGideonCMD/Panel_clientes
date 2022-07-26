@@ -26,10 +26,16 @@ class Data_Prep:
             df_bm = ft.rename_columns(df_email_clean,dict_data_prep.dict_rename_bm)
             agg_columns = ['cadena', 'tienda', 'fecha', 'email', 'rut', 'tipo_correo']
 
-            df_day = df_bm.groupby(agg_columns).agg({'venta_neta':'sum', 'boleta':'nunique', 'cod_prod':'count'}).reset_index().rename(columns={'venta_neta':'monto_total_dia'
+            df_sales_agg = df_bm.groupby(agg_columns).agg({'venta_neta':'sum', 'boleta':'nunique', 'cod_prod':'count'}).reset_index().rename(columns={'venta_neta':'monto_total_dia'
                                                                                                                                               , 'boleta':'cantidad_boleta', 'cod_prod':'unidades_dia'})
+            agg_columns_min_date = ['cadena', 'tienda', 'email', 'rut', 'tipo_correo']
+
+            df_min_date = df_bm.groupby(agg_columns_min_date).agg({'fecha':'min'}).reset_index().rename(columns={'fecha':'min_fecha'})
+
+            df_day = pd.merge(df_sales_agg, df_min_date, how='left', on=['cadena', 'tienda', 'email', 'rut', 'tipo_correo'])
 
             return df_day
+
         elif self.canal == 'ECOM':
             df_clean = ft.data_prep_ecom(self.data, 'email', 'monto_total', 'descuento_total')
             df_email_clean = ft.emaiL_classification(df_clean, 'email', dict_marcas_sitios.dict_correos['list_email'], dict_marcas_sitios.dict_correos['forus_email'],
@@ -38,11 +44,18 @@ class Data_Prep:
 
             df_ecom = ft.rename_columns(df_email_clean, dict_data_prep.dict_rename_ecom)
             df_ecom['fecha'] = pd.to_datetime(df_ecom['fecha_hora']).dt.date
-            agg_columns = ['sitio', 'fecha', 'email', 'tipo_correo']
+            agg_columns = ['sitio', 'fecha', 'email', 'rut','tipo_correo']
 
-            df_day = df_ecom.groupby(agg_columns).agg(
+            df_sales_agg = df_ecom.groupby(agg_columns).agg(
                 {'monto_total': 'sum', 'orden': 'nunique', 'unidades': 'sum'}).reset_index().rename(
                 columns={'monto_total': 'monto_total_dia', 'orden': 'cantidad_boleta', 'unidades': 'unidades_dia'})
+
+            agg_columns_min_date = ['sitio', 'email', 'rut','tipo_correo']
+
+            df_min_date = df_ecom.groupby(agg_columns_min_date).agg({'fecha': 'min'}).reset_index().rename(columns={'fecha': 'min_fecha'})
+
+            df_day = pd.merge(df_sales_agg, df_min_date, how='left', on=['sitio', 'email', 'rut','tipo_correo'])
+
             return df_day
 
         elif self.canal == 'ALL':
@@ -54,9 +67,15 @@ class Data_Prep:
                                                      dict_marcas_sitios.dict_correos['trash_mailpag'])
 
             agg_columns = ['tienda', 'email', 'tipo_correo','rut', 'fecha']
-            df_day = df_email_clean.groupby(agg_columns).agg({'boleta':'nunique', 'cod_prod':'count', 'venta_neta':'sum'}).reset_index().rename(
-                columns={'boleta':'cantidad_boleta', 'cod_prod':'unidades_dia', 'venta_neta':'monto_total_dia'}
-            )
+
+            df_sales_agg = df_email_clean.groupby(agg_columns).agg({'boleta':'nunique', 'cod_prod':'count', 'venta_neta':'sum'}).reset_index().rename(
+                columns={'boleta':'cantidad_boleta', 'cod_prod':'unidades_dia', 'venta_neta':'monto_total_dia'})
+
+            agg_columns_min_date = ['tienda', 'email', 'tipo_correo','rut']
+
+            df_min_date = df_email_clean.groupby(agg_columns_min_date).agg({'fecha': 'min'}).reset_index().rename(columns={'fecha': 'min_fecha'})
+
+            df_day = pd.merge(df_sales_agg, df_min_date, how='left', on=['tienda', 'email', 'tipo_correo','rut'])
 
             return df_day
 
@@ -107,14 +126,15 @@ class Data_Prep:
 
         if self.canal == 'BM':
 
-            df_purchase = ft.previous_purchase(df, 'cadena', 'email', 'fecha','monto_total_dia', 'unidades_dia', 'cantidad_boleta', 'tipo_correo')
+            df_purchase = ft.previous_purchase(df, 'cadena', 'email', 'fecha','monto_total_dia', 'unidades_dia', 'cantidad_boleta', 'tipo_correo', 'min_fecha')
 
             df_purchase['tipo_cliente'] = df_purchase.apply(lambda row: ft.tipo_cliente(row['fecha'], row['fecha_compra_anterior'],
                                                                    row['mes_actual'], row['mes_compra_anterior'] ,row['anio_actual'],
-                                                                   row['anio_compra_anterior'], meses, row['fecha_compra_pre_anterior']), axis=1)
+                                                                   row['anio_compra_anterior'], meses, row['fecha_compra_pre_anterior'],
+                                                                   row['min_fecha']), axis=1)
 
 
-            var_output_bm = ['cadena', 'email', 'tipo_cliente', 'tipo_correo', 'fecha', 'monto_total_dia','unidades_dia','cantidad_boleta']
+            var_output_bm = ['cadena', 'email', 'rut','tipo_cliente', 'tipo_correo', 'fecha', 'monto_total_dia','unidades_dia','cantidad_boleta']
 
             df_output = df_purchase[var_output_bm]
             df_output['year'] = df_output['fecha'].dt.year
@@ -123,14 +143,15 @@ class Data_Prep:
 
         elif self.canal == 'ECOM':
 
-            df_purchase = ft.previous_purchase(df, 'sitio', 'email', 'fecha','monto_total_dia', 'unidades_dia', 'cantidad_boleta', 'tipo_correo')
+            df_purchase = ft.previous_purchase(df, 'sitio', 'email', 'fecha','monto_total_dia', 'unidades_dia', 'cantidad_boleta', 'tipo_correo', 'min_fecha')
 
             df_purchase['tipo_cliente'] = df_purchase.apply(lambda row: ft.tipo_cliente(row['fecha'], row['fecha_compra_anterior'],
                                                                    row['mes_actual'], row['mes_compra_anterior'],
-                                                                   row['anio_actual'], row['anio_compra_anterior'], meses, row['fecha_compra_pre_anterior']), axis=1)
+                                                                   row['anio_actual'], row['anio_compra_anterior'], meses, row['fecha_compra_pre_anterior'],
+                                                                   row['min_fecha']), axis=1)
 
 
-            var_output_bm = ['sitio', 'email', 'tipo_cliente', 'tipo_correo', 'fecha', 'monto_total_dia','unidades_dia','cantidad_boleta']
+            var_output_bm = ['sitio', 'email', 'rut','tipo_cliente', 'tipo_correo', 'fecha', 'monto_total_dia','unidades_dia','cantidad_boleta']
 
             df_output = df_purchase[var_output_bm]
             df_output['year'] = df_output['fecha'].dt.year
@@ -139,14 +160,15 @@ class Data_Prep:
 
         elif self.canal == 'ALL':
 
-            df_purchase = ft.previous_purchase(df, 'tienda', 'email', 'fecha', 'monto_total_dia', 'unidades_dia', 'cantidad_boleta', 'tipo_correo')
+            df_purchase = ft.previous_purchase(df, 'tienda', 'email', 'fecha', 'monto_total_dia', 'unidades_dia', 'cantidad_boleta', 'tipo_correo', 'min_fecha')
 
             df_purchase['tipo_cliente'] = df_purchase.apply(lambda row: ft.tipo_cliente(row['fecha'], row['fecha_compra_anterior'],
                                                                    row['mes_actual'], row['mes_compra_anterior'], row['anio_actual'],
-                                                                   row['anio_compra_anterior'], meses, row['fecha_compra_pre_anterior']), axis=1)
+                                                                   row['anio_compra_anterior'], meses, row['fecha_compra_pre_anterior'],
+                                                                   row['min_fecha']), axis=1)
 
 
-            var_output_all = ['tienda', 'email', 'tipo_cliente', 'tipo_correo', 'fecha', 'monto_total_dia','unidades_dia','cantidad_boleta']
+            var_output_all = ['tienda', 'email', 'rut','tipo_cliente', 'tipo_correo', 'fecha', 'monto_total_dia','unidades_dia','cantidad_boleta']
 
             df_output = df_purchase[var_output_all]
             df_output['year'] = df_output['fecha'].dt.year
