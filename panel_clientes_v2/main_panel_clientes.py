@@ -96,6 +96,7 @@ tinicio_prepdatos = datetime.datetime.now()
 data_prep = Data_Preparation.Data_Prep(df_data, execution_mode)
 
 df_general = data_prep.df_general_agg()
+print(df_general.head())
 df_cliente_activo = data_prep.cliente_activo_perdido(df_general, 365)
 
 df_tipo_cliente_12 = data_prep.tipo_cliente(df_general, dict_data_prep.dict_function_tipo_cliente[1])
@@ -117,15 +118,14 @@ model_rfmt = function.rfmt(df_data, execution_mode)
 
 df_rfmt = model_rfmt
 
-
 if execution_mode == 'BM':
-    df_tipo_cliente_rfmt = pd.merge(df_tipo_cliente, df_rfmt, how='left', on=['cadena', 'email'])
+    df_tipo_cliente_rfmt = pd.merge(df_tipo_cliente, df_rfmt, how='left', on=['cadena', 'email', 'rut'])
 
 elif execution_mode == 'ECOM':
-    df_tipo_cliente_rfmt = pd.merge(df_tipo_cliente, df_rfmt, how='left', on=['sitio', 'email'])
+    df_tipo_cliente_rfmt = pd.merge(df_tipo_cliente, df_rfmt, how='left', on=['sitio', 'email', 'rut'])
 
 elif execution_mode == 'ALL':
-    df_tipo_cliente_rfmt = pd.merge(df_tipo_cliente, df_rfmt, how='left', on=['tienda', 'email'])
+    df_tipo_cliente_rfmt = pd.merge(df_tipo_cliente, df_rfmt, how='left', on=['tienda', 'email', 'rut'])
 
 tfin_rfmt = datetime.datetime.now() - tinicio_rfmt
 print('el proceso del RFMT de datos se demoro {}'.format(tfin_prepdatos))
@@ -205,8 +205,9 @@ print('el proceso del cálculo del CLV finalizo a las {}'.format(tfin_clv))
 #### Salidas deseadas ####
 
 hoy = date.today()
-df_tipo_cliente_vf['rut'] = df_tipo_cliente_vf['rut'].astype('int')
-df_tipo_cliente_vf.to_parquet(r'C:\Users\dponce\Documents\Trabajo\Panel de clientes\data_tipo_cliente_'+execution_mode+'_'+str(hoy)+'.gzip', engine='pyarrow')
-clv.to_excel(r'C:\Users\dponce\Documents\Trabajo\Panel de clientes\data_clv_cadena'+str(hoy)+'.xlsx')
+#df_tipo_cliente_vf['rut'] = df_tipo_cliente_vf['rut'].astype('int')
+#df_tipo_cliente_vf.to_csv(r'C:\Users\ngaete\Documents\Panel_clientes\data_tipo_cliente2_'+execution_mode+'_'+str(hoy)+'.csv')
+#df_tipo_cliente_vf.to_parquet(r'C:\Users\ngaete\Documents\Panel_clientes\data_tipo_cliente2_'+execution_mode+'_'+str(hoy)+'.gzip', engine='pyarrow')
+#clv.to_excel(r'C:\Users\ngaete\Documents\Panel_clientes\data_clv_cadena2'+str(hoy)+'.xlsx')
 
 
