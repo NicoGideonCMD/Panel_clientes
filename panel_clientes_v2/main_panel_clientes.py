@@ -96,7 +96,7 @@ tinicio_prepdatos = datetime.datetime.now()
 data_prep = Data_Preparation.Data_Prep(df_data, execution_mode)
 
 df_general = data_prep.df_general_agg()
-print(df_general.head())
+
 df_cliente_activo = data_prep.cliente_activo_perdido(df_general, 365)
 
 df_tipo_cliente_12 = data_prep.tipo_cliente(df_general, dict_data_prep.dict_function_tipo_cliente[1])
@@ -206,7 +206,7 @@ print('el proceso del cálculo del CLV finalizo a las {}'.format(tfin_clv))
 
 hoy = date.today()
 #df_tipo_cliente_vf['rut'] = df_tipo_cliente_vf['rut'].astype('int')
-#df_tipo_cliente_vf.to_csv(r'C:\Users\ngaete\Documents\Panel_clientes\data_tipo_cliente2_'+execution_mode+'_'+str(hoy)+'.csv')
+df_tipo_cliente_vf.to_csv(r'C:\Users\ngaete\Documents\Panel_clientes\data_tipo_cliente_'+execution_mode+'_'+str(hoy)+'.csv')
 #df_tipo_cliente_vf.to_parquet(r'C:\Users\ngaete\Documents\Panel_clientes\data_tipo_cliente2_'+execution_mode+'_'+str(hoy)+'.gzip', engine='pyarrow')
 #clv.to_excel(r'C:\Users\ngaete\Documents\Panel_clientes\data_clv_cadena2'+str(hoy)+'.xlsx')
 

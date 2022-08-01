@@ -33,9 +33,6 @@ from public.ventas_bi v
 left join public.log_cliente_boleta b on v.cod_tienda = b.hed_local and v.numero_impreso = b.foli_docu
 left join analitica.maestro_tiendas t on v.cod_tienda = t.codigo_tienda
 where v.fecha_transaccion between  '{}' and '{}'
-      and v.ventasiva>100
-      and v.cantidad>0      
-      and v.anyo>=2015
       and v.forma_pago_ec='N'
       and t.nombre_cadena not in ('CD ECOMMERCE','ECOMMERCE')
       and v.clase <> 'DESPACHOS'
@@ -75,9 +72,6 @@ from public.ventas_bi v
 left join public.log_cliente_boleta b on v.cod_tienda = b.hed_local and v.numero_impreso = b.foli_docu
 left join analitica.maestro_tiendas t on v.cod_tienda = t.codigo_tienda
 where v.fecha_transaccion between '{}' and '{}'
-      and v.ventasiva>100
-      and v.cantidad>0      
-      and v.anyo>=2015
       and v.forma_pago_ec='N'
       and t.nombre_cadena not in ('CD ECOMMERCE','ECOMMERCE')
       and v.clase <> 'DESPACHOS'
